@@ -1,0 +1,22 @@
+[package]
+name = "rust-wss-grpc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.36.0", features = ["full"] }
+serde_json = "1.0.114"
+clap = { version = "4.5.1", features = ["derive"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+ws-tool = { version = "*", features = ["async", "async_tls_rustls"] }
+http = "1.1.0"
+tonic = "0.11.0"
+futures = "0.3.30"
+chrono = "0.4"
+
+[build-dependencies]
+tonic-build = "0.11.0"
+prost = "0.12.3"

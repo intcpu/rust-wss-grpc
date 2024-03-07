@@ -1,0 +1,8 @@
+*.pyc
+*.json
+target
+__pycache__
+.idea
+logs/
+Pipfile.lock
+dump.rdb

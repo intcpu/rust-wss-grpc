@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+service Signal {
+    rpc GetBookTickers(BookTickerReq) returns (BookTickerResp) {}
+    rpc GetSymbols(SymbolsReq) returns (SymbolsResp) {}
+    rpc GetCmcRanking(EmptyReq) returns (CmcRankingResp) {}
+}
+
+message EmptyReq {}
+
+message CmcRankingResp {
+    repeated CmcRanking coins = 1;
+}
+
+message CmcRanking {
+    uint64 id = 1;
+    string name = 2;
+    string symbol = 3;
+    uint64 rank = 4;
+}
+
+message SymbolsReq {
+    EXCHANGE exchange = 1;
+}
+
+message SymbolsResp {
+    repeated string symbols = 1;
+}
+
+message BookTickerReq {
+    EXCHANGE exchange = 1;
+    repeated string pairs = 2;
+}
+
+message BookTickerResp {
+    map<string, PairBookTickers> data = 1;
+}
+
+message PairBookTicker {
+    MarginType margin_type = 1;
+    uint64 timestamp = 2;
+    float bid = 3;
+    float ask = 4;
+}
+
+message PairBookTickers {
+    repeated PairBookTicker tickers = 1;
+}
+
+enum MarginType {
+    SPOT = 0;
+    USDT_MARGIN = 1; 
+    COIN_MARGIN = 2;
+}
+
+enum EXCHANGE {
+    BINANCE = 0;
+}
