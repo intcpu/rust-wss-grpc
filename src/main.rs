@@ -2,12 +2,13 @@ use tracing::Level;
 use tracing_subscriber;
 use tracing_subscriber::util::SubscriberInitExt;
 use wss::bookticker;
+use wss::wss_test;
 
 mod wss;
 
-pub mod Signal {
-    tonic::include_proto!("signal");
-}
+// pub mod signal {
+//     tonic::include_proto!("signal");
+// }
 
 #[tokio::main]
 async fn main() {
@@ -19,4 +20,5 @@ async fn main() {
     let pair = "XRP_USDT";
     println!("------end-----");
     // bookticker::bn_wss_bookticker(pair).await;
+    wss_test::wss_test().await.expect("TODO: panic message");
 }
