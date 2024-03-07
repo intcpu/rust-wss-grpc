@@ -1129,6 +1129,7 @@ dependencies = [
  "clap",
  "futures",
  "http 1.1.0",
+ "lazy_static",
  "prost",
  "serde_json",
  "tokio",

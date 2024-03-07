@@ -2,7 +2,12 @@ use tracing::Level;
 use tracing_subscriber;
 use tracing_subscriber::util::SubscriberInitExt;
 use wss::bookticker;
+
 mod wss;
+
+pub mod Signal {
+    tonic::include_proto!("signal");
+}
 
 #[tokio::main]
 async fn main() {
@@ -12,7 +17,6 @@ async fn main() {
         .try_init()
         .expect("failed to init log");
     let pair = "XRP_USDT";
-    // let _ = bookticker::gt_wss_bookticker(pair).await;
     println!("------end-----");
-    let _ = bookticker::bn_wss_bookticker(pair).await;
+    // bookticker::bn_wss_bookticker(pair).await;
 }
