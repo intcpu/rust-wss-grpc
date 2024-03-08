@@ -8,17 +8,17 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.36.0", features = ["full"] }
 serde_json = "1.0.114"
-clap = { version = "4.5.1", features = ["derive"] }
+#clap = { version = "4.5.1", features = ["derive"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-ws-tool = { version = "*", features = ["async", "async_tls_rustls"] }
-http = "1.1.0"
+#ws-tool = { version = "*", features = ["async", "async_tls_rustls"] }
+#http = "1.1.0"
 tonic = "0.11.0"
 futures = "0.3.30"
 chrono = "0.4"
-lazy_static = "1.4.0"
 prost = "0.12.3"
-tokio-tungstenite = "0.21.0"
+tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
+serde = { version = "1.0.197", features = ["derive"] }
 
 [build-dependencies]
 tonic-build = "0.11.0"
