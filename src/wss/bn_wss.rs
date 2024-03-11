@@ -3,7 +3,7 @@ use tokio::sync::broadcast;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info};
 
-pub async fn bn_um_wss_bookticker(pair: &str, tx: broadcast::Sender<String>) -> Result<(), ()> {
+pub async fn bn_um_wss_bookticker(pair: &str, tx: &broadcast::Sender<String>) -> Result<(), ()> {
     let pair_lower = pair.to_lowercase().replace("_", "");
     let addr = "fstream-mm.binance.com";
     let url = format!("wss://{}/stream?streams={}@bookTicker", addr, pair_lower);
