@@ -5,7 +5,8 @@ use tracing::{error, info};
 
 pub async fn bn_um_wss_bookticker(pair: &str, tx: broadcast::Sender<String>) -> Result<(), ()> {
     let pair_lower = pair.to_lowercase().replace("_", "");
-    let addr = "fstream-mm.binance.com";
+    // let addr = "fstream-mm.binance.com";
+    let addr = "fstream.binance.com";
     let url = format!("wss://{}/stream?streams={}@bookTicker", addr, pair_lower);
 
     info!(
