@@ -3,21 +3,27 @@ use tokio::sync::broadcast;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{error, info};
 
-pub async fn bn_wss_bookticker(pair: &str, tx: broadcast::Sender<String>) -> Result<(), ()> {
+pub async fn bn_um_wss_bookticker(pair: &str, tx: broadcast::Sender<String>) -> Result<(), ()> {
     let pair_lower = pair.to_lowercase().replace("_", "");
     let addr = "fstream-mm.binance.com";
     let url = format!("wss://{}/stream?streams={}@bookTicker", addr, pair_lower);
 
-    info!("Connected to addr: {:?}, url: {:?}", addr, url);
+    info!(
+        "{:?} Usdt Margin Connected to addr: {:?}, url: {:?}",
+        pair, addr, url
+    );
 
     let (ws_stream, _) = match tokio_tungstenite::connect_async(url).await {
         Ok(ws_stream) => ws_stream,
         Err(err) => {
-            error!("Failed to connect to WebSocket: {}", err);
+            error!(
+                "{:?} Usdt Margin Failed to connect to WebSocket: {:?}",
+                pair, err
+            );
             return Err(());
         }
     };
-    info!("WebSocket connection established");
+    info!("{:?} Usdt Margin WebSocket connection established", pair);
 
     let (_, mut read) = ws_stream.split();
 
@@ -30,33 +36,47 @@ pub async fn bn_wss_bookticker(pair: &str, tx: broadcast::Sender<String>) -> Res
                 // println!("Received message: {:?} at {}", msg_json, timestamp_millis);
 
                 if let Err(err) = tx.send(text) {
-                    error!("Failed to send bn_wss_bookticker message: {:?}", err);
+                    error!(
+                        "{:?} Usdt Margin Failed to send bn_wss_bookticker message: {:?}",
+                        pair, err
+                    );
                     continue;
                 }
             }
             Ok(Message::Binary(data)) => {
-                error!("Received binary message with {} bytes", data.len());
+                error!(
+                    "{:?} Usdt Margin Received binary message with {} bytes",
+                    pair,
+                    data.len()
+                );
                 // Process the binary message
             }
             Ok(Message::Close(_)) => {
-                error!("Received close message");
+                error!("{:?} Usdt Margin Received close message", pair);
                 return Err(());
                 // Handle the close message
             }
-            Ok(Message::Ping(data)) => {
-                info!("Received ping message with {} bytes", data.len());
+            Ok(Message::Ping(_)) => {
+                // info!("Received ping message with {} bytes", data.len());
                 // Handle the ping message
             }
             Ok(Message::Pong(data)) => {
-                info!("Received pong message with {} bytes", data.len());
+                info!(
+                    "{:?} Usdt Margin Received pong message with {} bytes",
+                    pair,
+                    data.len()
+                );
                 // Handle the pong message
             }
             Err(err) => {
-                error!("Failed to receive message from WebSocket: {}", err);
+                error!(
+                    "{:?} Usdt Margin Failed to receive message from WebSocket: {}",
+                    pair, err
+                );
                 return Err(());
             }
             _ => {
-                error!("Unknown message type");
+                error!("{:?} Usdt Margin Unknown message type", pair);
             }
         };
     }

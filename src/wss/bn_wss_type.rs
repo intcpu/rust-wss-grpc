@@ -2,28 +2,28 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct BnBookTickerMessage {
-    stream: String,
-    data: BnBookTickerData,
+    pub(crate) stream: String,
+    pub(crate) data: BnBookTickerData,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct BnBookTickerData {
     #[serde(rename = "e")]
-    event: String,
+    pub(crate) event: String,
     #[serde(rename = "u")]
-    id: u64,
+    pub(crate) id: u64,
     #[serde(rename = "s")]
-    pair: String,
+    pub(crate) pair: String,
     #[serde(rename = "b")]
-    bid_price: String,
+    pub(crate) bid_price: String,
     #[serde(rename = "B")]
-    bid_size: String,
+    pub(crate) bid_size: String,
     #[serde(rename = "a")]
-    ask_price: String,
+    pub(crate) ask_price: String,
     #[serde(rename = "A")]
-    ask_size: String,
+    pub(crate) ask_size: String,
     #[serde(rename = "T")]
-    trade_time: u64,
+    pub(crate) trade_time: u64,
     #[serde(rename = "E")]
-    event_time: u64,
+    pub(crate) event_time: u64,
 }

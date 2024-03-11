@@ -1,8 +1,10 @@
-use crate::rpc;
-use signal::{signal_server::Signal, signal_server::SignalServer, BookTickerReq, BookTickerResp};
+use crate::rpc::rpc_types::AllBookTickers;
+use chrono::Local;
+use signal::{
+    signal_server::Signal, signal_server::SignalServer, BookTickerReq, BookTickerResp,
+    PairBookTickers,
+};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tonic::{transport::Server, Request, Response, Status};
 use tracing::{error, info};
 
@@ -12,7 +14,7 @@ pub mod signal {
 
 #[derive(Debug, Default)]
 pub struct SignalImpl {
-    pub pair_bts: Arc<RwLock<HashMap<String, BookTickerResp>>>, // 添加 pair_bts 字段
+    pub all_book_tickers: AllBookTickers, // 添加 pair_bts 字段
 }
 
 #[tonic::async_trait]
@@ -21,44 +23,71 @@ impl Signal for SignalImpl {
         &self,
         request: Request<BookTickerReq>,
     ) -> Result<Response<BookTickerResp>, Status> {
-        let pair_bts = self.pair_bts.read().await;
-        println!("Pair Book Tickers: {:?}", *pair_bts);
-
-        // if let Some(&quantity) = pair_bts.get("banana") {
-        //     println!("The quantity of bananas is: {:?}", quantity);
-        // } else {
-        //     println!("Bananas not found!");
-        // }
-
+        let s_local_time = Local::now();
         let req = request.into_inner();
-        println!("Received request: {:?}", req);
-        println!("Received request pairs: {:?}", req.pairs);
 
-        // Placeholder logic to process the request and generate a response
-        let response = BookTickerResp::default();
-        // Populate the response with some data
-        // For example:
-        // response.set_data(my_data);
+        let mut all_pair_datas = HashMap::new();
+        let usdt_margin_pair_bts = self.all_book_tickers.usdt_margin.data.read().await;
+        let spot_pair_bts = self.all_book_tickers.spot.data.read().await;
+        for p in req.clone().pairs {
+            // pair_datas.insert(p, pair_bts.get(p.as_str()).unwrap().clone())
+            let mut pair_datas = PairBookTickers::default();
 
+            if let Some(pair_data) = usdt_margin_pair_bts.get(p.as_str()) {
+                pair_datas.tickers.push(pair_data.clone());
+                all_pair_datas.insert(p.clone(), pair_datas.clone());
+                // println!("{:?}", pair_data);
+            } else {
+                error!(
+                    "RPC SignalServer get_book_tickers usdt_margin_pair not found: {}",
+                    p
+                );
+            }
+            if let Some(pair_data) = spot_pair_bts.get(p.as_str()) {
+                pair_datas.tickers.push(pair_data.clone());
+                all_pair_datas.insert(p.clone(), pair_datas.clone());
+                // println!("{:?}", pair_data);
+            } else {
+                error!(
+                    "RPC SignalServer get_book_tickers spot_pair not found: {}",
+                    p
+                );
+            }
+        }
+
+        let response = BookTickerResp {
+            data: all_pair_datas,
+        };
+
+        let e_local_time = Local::now();
+        info!(
+            "RPC request:{:?} response:{:?} start_time:{:?} end_time:{:?}",
+            req,
+            response.clone(),
+            s_local_time,
+            e_local_time
+        );
         Ok(Response::new(response))
     }
 }
 
-pub async fn rpc_server(pair_bts: Arc<RwLock<HashMap<String, BookTickerResp>>>) -> Result<(), ()> {
-    let addr = "127.0.0.1:50051".parse().expect("Failed to parse address");
-    let signal_server = SignalServer::new(SignalImpl { pair_bts });
+pub async fn rpc_server(all_book_tickers: AllBookTickers) -> Result<(), ()> {
+    let addr = "127.0.0.1:50051"
+        .parse()
+        .expect("RPC Failed to parse address");
+    let signal_server = SignalServer::new(SignalImpl { all_book_tickers });
 
-    println!("Server listening on {}", addr);
+    info!("RPC Server listening on {}", addr);
     match Server::builder()
         .add_service(signal_server)
         .serve(addr)
         .await
     {
         Ok(_) => {
-            info!("--- Server start ---");
+            info!("---RPC Server start ---");
         }
         Err(e) => {
-            error!("Server error: {}", e);
+            error!("RPC Server error: {}", e);
             return Err(());
         }
     };
