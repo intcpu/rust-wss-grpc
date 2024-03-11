@@ -1,8 +1,8 @@
 #!/bin/bash
 
-declare -a services=("../helloworld")
-
+declare -a services=("../../protos/")
 for SERVICE in "${services[@]}"; do
+    echo $SERVICE
     DESTDIR='./'
     mkdir -p $DESTDIR
     python -m grpc_tools.protoc \
