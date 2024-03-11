@@ -1,6 +1,7 @@
 use crate::rpc::rpc_server::signal::{MarginType, PairBookTicker};
 use crate::rpc::rpc_types::{AllBookTickers, SpotBookTickers, UsdtMarginBookTickers};
 // use chrono::Local;
+use dashmap::DashMap;
 use rpc::rpc_server;
 use std::collections::HashMap;
 use std::process;
@@ -11,6 +12,7 @@ use tracing_subscriber;
 use tracing_subscriber::util::SubscriberInitExt;
 use wss::{bn_wss, bn_wss_type};
 
+// mod rest;
 mod rpc;
 mod wss;
 
@@ -21,12 +23,14 @@ async fn main() {
         .finish()
         .try_init()
         .expect("failed to init log");
+    // let symbol_data = rest::bn_rest::um_get_symbols().await.unwrap();
+    // println!("{:?}", symbol_data);
 
     let spot_book_tickers = SpotBookTickers {
-        data: Arc::new(RwLock::new(HashMap::new())),
+        data: Arc::new(DashMap::with_capacity(256)),
     };
     let usdt_margin_book_tickers = UsdtMarginBookTickers {
-        data: Arc::new(RwLock::new(HashMap::new())),
+        data: Arc::new(DashMap::with_capacity(256)),
     };
     let all_book_tickers = AllBookTickers {
         spot: SpotBookTickers {
@@ -71,8 +75,6 @@ async fn main() {
                     //     local_time,
                     //     msg_json.data.event_time.clone()
                     // );
-                    let mut pair_bts_data = pair_bts_write.write().await; // 获取锁
-
                     let msg_margin_type = MarginType::UsdtMargin;
                     let msg_data = PairBookTicker {
                         margin_type: i32::from(msg_margin_type),
@@ -81,7 +83,7 @@ async fn main() {
                         ask: msg_json.data.ask_price.parse().unwrap(),
                     };
                     let pair = msg_json.data.pair.clone().to_string();
-                    pair_bts_data.insert(pair, msg_data);
+                    pair_bts_write.insert(pair, msg_data);
                     // let local_time = Local::now();
                     // println!(
                     //     "---- 3 ---- {:?} {:?}",

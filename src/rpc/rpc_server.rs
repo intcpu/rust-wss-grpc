@@ -27,8 +27,8 @@ impl Signal for SignalImpl {
         let req = request.into_inner();
 
         let mut all_pair_datas = HashMap::new();
-        let usdt_margin_pair_bts = self.all_book_tickers.usdt_margin.data.read().await;
-        let spot_pair_bts = self.all_book_tickers.spot.data.read().await;
+        let usdt_margin_pair_bts = self.all_book_tickers.usdt_margin.data.clone();
+        let spot_pair_bts = self.all_book_tickers.spot.data.clone();
         for p in req.clone().pairs {
             // pair_datas.insert(p, pair_bts.get(p.as_str()).unwrap().clone())
             let mut pair_datas = PairBookTickers::default();
