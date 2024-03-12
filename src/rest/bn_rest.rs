@@ -55,13 +55,46 @@ pub(crate) struct SpotMarket {
 }
 
 // see <https://binance-docs.github.io/apidocs/futures/en/#exchange-information>
-pub(crate) async fn um_get_symbols() -> Result<Vec<String>, ()> {
-    let markets = http_um_get_markets().await.unwrap();
+pub(crate) async fn um_get_symbols(
+    markets: &BinanceResponse<UsdtMarginMarket>,
+) -> Result<Vec<String>, ()> {
     let symbols: Vec<String> = markets
         .symbols
-        .into_iter()
+        .iter()
         .filter(|m| m.status == "TRADING" && m.symbol.ends_with("USDT"))
-        .map(|m| m.symbol)
+        .map(|m| m.symbol.clone())
+        .collect();
+    Ok(symbols)
+}
+
+pub(crate) async fn um_get_price_ticker_size(
+    markets: &BinanceResponse<UsdtMarginMarket>,
+) -> Result<Vec<(String, String)>, ()> {
+    let symbols: Vec<(String, String)> = markets
+        .symbols
+        .iter()
+        .map(|m| {
+            (
+                m.symbol.clone(),
+                m.filters
+                    .clone()
+                    .iter()
+                    .find_map(|f| {
+                        if f.get("filterType").unwrap() == "PRICE_FILTER" {
+                            Some(
+                                f.get("tickSize")
+                                    .unwrap()
+                                    .to_string()
+                                    .trim_matches('"')
+                                    .to_string(),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap(),
+            )
+        })
         .collect();
     Ok(symbols)
 }
@@ -107,13 +140,46 @@ pub(crate) async fn http_um_get_markets() -> Result<BinanceResponse<UsdtMarginMa
     }
 }
 
-pub(crate) async fn spot_get_symbols() -> Result<Vec<String>, ()> {
-    let markets = http_spot_get_markets().await.unwrap();
+pub(crate) async fn spot_get_symbols(
+    markets: &BinanceResponse<SpotMarket>,
+) -> Result<Vec<String>, ()> {
     let symbols: Vec<String> = markets
         .symbols
-        .into_iter()
+        .iter()
         .filter(|m| m.status == "TRADING" && m.isSpotTradingAllowed && m.symbol.ends_with("USDT"))
-        .map(|m| m.symbol)
+        .map(|m| m.symbol.clone())
+        .collect();
+    Ok(symbols)
+}
+
+pub(crate) async fn spot_get_price_ticker_size(
+    markets: &BinanceResponse<SpotMarket>,
+) -> Result<Vec<(String, String)>, ()> {
+    let symbols: Vec<(String, String)> = markets
+        .symbols
+        .iter()
+        .map(|m| {
+            (
+                m.symbol.clone(),
+                m.filters
+                    .clone()
+                    .iter()
+                    .find_map(|f| {
+                        if f.get("filterType").unwrap() == "PRICE_FILTER" {
+                            Some(
+                                f.get("tickSize")
+                                    .unwrap()
+                                    .to_string()
+                                    .trim_matches('"')
+                                    .to_string(),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap(),
+            )
+        })
         .collect();
     Ok(symbols)
 }
