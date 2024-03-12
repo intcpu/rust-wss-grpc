@@ -2,7 +2,8 @@ use crate::rpc::rpc_server::signal::{MarginType, PairBookTicker};
 use crate::rpc::rpc_types::{AllBookTickers, SpotBookTickers, UsdtMarginBookTickers};
 use std::collections::HashMap;
 // use chrono::Local;
-use chrono::Local;
+use crate::rest::bn_rest::{spot_get_symbols, um_get_symbols};
+use chrono::{Local, Utc};
 use dashmap::DashMap;
 use rpc::rpc_server;
 use std::process;
@@ -26,16 +27,6 @@ async fn main() {
         .finish()
         .try_init()
         .expect("failed to init log");
-    let symbols = match rest::bn_rest::um_get_symbols().await {
-        Ok(symbols) => symbols,
-        Err(e) => {
-            error!("Failed to get symbols: {:?}", e);
-            process::exit(1);
-        }
-    };
-
-    let mut wss_channels: HashMap<String, (Sender<String>, Receiver<String>)> =
-        HashMap::new();
     let spot_book_tickers = SpotBookTickers {
         data: Arc::new(DashMap::with_capacity(512)),
     };
@@ -51,16 +42,96 @@ async fn main() {
         },
     };
 
+    let spot_symbols = match spot_get_symbols().await {
+        Ok(symbols) => symbols,
+        Err(e) => {
+            error!("Failed to get spot symbols: {:?}", e);
+            process::exit(1);
+        }
+    };
+    let mut spot_tasks: Vec<JoinHandle<()>> = vec![];
+    let spot_bts_write = spot_book_tickers.data.clone();
+    for symbol in spot_symbols.iter() {
+        let spot_bts_write = spot_bts_write.clone();
+        let symbol = symbol.clone();
+        let task = tokio::task::spawn(async move {
+            let (tx, rx) = broadcast::channel::<String>(1);
+            let symbol_t = symbol.clone();
+            let symbol_r = symbol.clone();
+            let tx_task = tokio::task::spawn(async move {
+                loop {
+                    info!("{:?} spot wss start", &symbol_t);
+                    let tx = tx.clone();
+                    bn_wss::bn_spot_wss_bookticker(&symbol_t, tx).await;
+                    error!("{:?} spot wss end", &symbol_t);
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                }
+            });
+            let mut rx = rx.resubscribe();
+            let rx_task = tokio::task::spawn(async move {
+                loop {
+                    match rx.recv().await {
+                        Ok(msg) => {
+                            let msg_str = msg.as_str();
+                            let msg_json: bn_wss_type::BnSpotBookTickerMessage =
+                                match serde_json::from_str(msg_str) {
+                                    Ok(msg_json) => msg_json,
+                                    Err(err) => {
+                                        error!("WebSocket msg json decode error: {}", err);
+                                        continue;
+                                    }
+                                };
+                            let now = Utc::now();
+                            let microseconds: u64 = now.timestamp_millis() as u64;
+                            let msg_margin_type = MarginType::Spot;
+                            let msg_data = PairBookTicker {
+                                margin_type: i32::from(msg_margin_type),
+                                timestamp: microseconds,
+                                bid: msg_json.data.bid_price.parse().unwrap(),
+                                ask: msg_json.data.ask_price.parse().unwrap(),
+                            };
+                            let pair = msg_json.data.pair.clone().to_string();
+                            spot_bts_write.insert(pair, msg_data);
+                            // println!("---- 3 ---- {} {:?}", symbol_r, microseconds);
+
+                            continue;
+                        }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            error!("Channel closed");
+                            return;
+                        }
+                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                            // warn!("Dropped {} lagged messages", count);
+                            continue;
+                        }
+                    }
+                }
+            });
+            let (r1, r2) = tokio::join!(tx_task, rx_task);
+            error!("{:?} tx_task and rx_task end : {r1:?} {r2:?}", &symbol);
+        });
+        spot_tasks.push(task);
+    }
+
+    let um_symbols = match um_get_symbols().await {
+        Ok(symbols) => symbols,
+        Err(e) => {
+            error!("Failed to get usdt margin symbols: {:?}", e);
+            process::exit(1);
+        }
+    };
+    let mut um_wss_channels: HashMap<String, (Sender<String>, Receiver<String>)> = HashMap::new();
+
     {
         info!(" Starting Binance WebSocket Server Task");
-        for symbol in symbols.clone() {
-            wss_channels.insert(symbol.clone(), broadcast::channel::<String>(1));
+        for symbol in um_symbols.clone() {
+            um_wss_channels.insert(symbol.clone(), broadcast::channel::<String>(1));
         }
     }
 
     let pair_bts_write = usdt_margin_book_tickers.data.clone();
     let mut receiver_tasks: Vec<JoinHandle<()>> = vec![];
-    for (symbol, (tx, rx)) in wss_channels.iter() {
+    for (symbol, (tx, rx)) in um_wss_channels.iter() {
         let mut rx = rx.resubscribe();
         let pair_bts_write = pair_bts_write.clone();
         let symbol = symbol.clone();
@@ -75,11 +146,14 @@ async fn main() {
                         // let local_time = Local::now();
                         // println!("---- 1 ---- {:?}", local_time);
                         let msg_str = msg.as_str();
-                        let msg_json: bn_wss_type::BnBookTickerMessage =
+                        let msg_json: bn_wss_type::BnUmBookTickerMessage =
                             match serde_json::from_str(msg_str) {
                                 Ok(msg_json) => msg_json,
                                 Err(err) => {
-                                    error!("WebSocket msg json decode error: {}", err);
+                                    error!(
+                                        "{} usdt margin WebSocket msg json decode error: {}",
+                                        &symbol, err
+                                    );
                                     continue;
                                 }
                             };
@@ -98,17 +172,17 @@ async fn main() {
                         };
                         let pair = msg_json.data.pair.clone().to_string();
                         pair_bts_write.insert(pair, msg_data);
-                        let local_time = Local::now();
-                        println!(
-                            "---- 3 ---- {} {:?} {:?}",
-                            symbol,
-                            local_time,
-                            msg_json.data.event_time.clone()
-                        );
+                        // let local_time = Local::now();
+                        // let now = Utc::now();
+                        // let microseconds: i128 = now.timestamp_millis() as i128;
+                        // let event_time: i128 = msg_json.data.event_time.clone() as i128;
+                        // if microseconds.checked_sub(event_time).unwrap_or_default() > 50 {
+                        //     println!("---- 3 ---- {} {:?} {:?}", symbol, microseconds, event_time);
+                        // }
                         continue;
                     }
                     Err(broadcast::error::RecvError::Closed) => {
-                        error!("Channel closed");
+                        error!("{} Channel closed", &symbol);
                         return;
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
@@ -122,14 +196,21 @@ async fn main() {
     }
 
     let mut sender_tasks: Vec<JoinHandle<()>> = vec![];
-    for (symbol, (tx, _)) in wss_channels.iter() {
+    for (symbol, (tx, _)) in um_wss_channels.iter() {
         let symbol = symbol.clone();
         let tx = tx.clone();
         let task = tokio::task::spawn(async move {
-            // info!(" {} usdt margin wss start: tx{:?}", symbol, &tx);
-            tokio::task::spawn(async move { bn_wss::bn_um_wss_bookticker(&symbol, tx).await });
+            loop {
+                info!("{:?} usdt margin wss start", &symbol);
+                let tx = tx.clone();
+                bn_wss::bn_um_wss_bookticker(&symbol, tx).await;
+                error!("{:?} usdt margin wss end", &symbol);
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            }
         });
         sender_tasks.push(task);
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
 
     info!("Starting RPC server Task");
@@ -140,10 +221,65 @@ async fn main() {
         }
     });
 
+    tokio::task::spawn(async move {
+        info!("check all_book_tickers");
+        loop {
+            let spot_book = spot_book_tickers.data.clone();
+            let usdt_book = usdt_margin_book_tickers.data.clone();
+            let now = Utc::now();
+            let microseconds: i128 = now.timestamp_millis() as i128;
+            let time_out_set = 60000;
+            info!(
+                "spot_symbols len: {:?} spot_book_tickers len: {:?}",
+                &spot_symbols.len(),
+                &spot_book.len()
+            );
+            info!(
+                "um_symbols len: {:?} usdt_margin_book_tickers: {:?}",
+                &um_symbols.len(),
+                &usdt_book.len()
+            );
+            if &spot_symbols.len() != &spot_book.len() {
+                for symbol in &spot_symbols {
+                    if let Some(a) = spot_book.get(symbol) {
+                        let event_time: i128 = a.timestamp.clone() as i128;
+                        let time_out = microseconds.checked_sub(event_time).unwrap_or_default();
+                        if time_out > time_out_set {
+                            error!(
+                                "{} spot book time from now: {:?} timeout: {:?}",
+                                &symbol, microseconds, time_out
+                            );
+                        }
+                    } else {
+                        error!("spot_book_tickers not found symbol: {:?}", &symbol)
+                    }
+                }
+            }
+            if &um_symbols.len() != &usdt_book.len() {
+                for symbol in &um_symbols {
+                    if let Some(a) = usdt_book.get(symbol) {
+                        let event_time: i128 = a.timestamp.clone() as i128;
+                        let time_out = microseconds.checked_sub(event_time).unwrap_or_default();
+                        if time_out > time_out_set {
+                            error!(
+                                "{} usdt margin book time from now: {:?} timeout: {:?}",
+                                &symbol, microseconds, time_out
+                            );
+                        }
+                    } else {
+                        error!("usdt_margin_book_tickers not found symbol: {:?}", &symbol)
+                    }
+                }
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+        }
+    });
+
     info!("all task is join");
     // let (r1, r2) = tokio::join!(receiver_task, task_c);
 
     let mut all_tasks: Vec<JoinHandle<()>> = vec![];
+    all_tasks.extend(spot_tasks);
     all_tasks.extend(receiver_tasks);
     all_tasks.extend(sender_tasks);
     all_tasks.push(task_c);
