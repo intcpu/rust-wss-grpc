@@ -20,6 +20,9 @@ tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
 serde = { version = "1.0.197", features = ["derive"] }
 dashmap = "5.5.3"
 tracing-appender = "*"
+tracing-futures = "0.2.5"
+time = "0.3.34"
+tracing-log = "0.2.0"
 
 [build-dependencies]
 tonic-build = "0.11.0"

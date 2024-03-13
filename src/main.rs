@@ -22,6 +22,41 @@ mod rest;
 mod rpc;
 mod wss;
 
+async fn init_log() {
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::time;
+    use tracing_subscriber::{prelude::*, FmtSubscriber, Registry};
+    use tracing_timed_rotating_file::TimedRotatingFileSubscriber;
+
+    // 创建一个 FmtSubscriber，用于输出到控制台
+    let console_subscriber = FmtSubscriber::new();
+
+    // 创建一个 TimedRotatingFileSubscriber，每天的8点轮换新文件
+    let file_subscriber =
+        TimedRotatingFileSubscriber::new("test.log", Duration::from_secs(3600 * 8), 0, 0);
+
+    // 创建一个全局的日志注册表
+    let registry = Registry::default()
+        .with(console_subscriber)
+        .with(file_subscriber);
+
+    // 将注册表转换为跟踪分发器
+    let dispatch = tracing_futures::WithSubscriber::new(registry);
+
+    // 设置全局的跟踪分发器
+    tracing::dispatcher::set_global_default(dispatch).expect("failed to set subscriber");
+
+    // 在异步函数中记录日志
+    tracing::info!("Starting async function");
+
+    // 模拟异步操作
+    time::delay_for(Duration::from_secs(2)).await;
+
+    // 记录完成的日志
+    tracing::info!("Async function completed");
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::fmt()
