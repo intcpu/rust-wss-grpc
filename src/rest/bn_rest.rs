@@ -67,37 +67,37 @@ pub(crate) async fn um_get_symbols(
     Ok(symbols)
 }
 
-pub(crate) async fn um_get_price_ticker_size(
-    markets: &BinanceResponse<UsdtMarginMarket>,
-) -> Result<Vec<(String, String)>, ()> {
-    let symbols: Vec<(String, String)> = markets
-        .symbols
-        .iter()
-        .map(|m| {
-            (
-                m.symbol.clone(),
-                m.filters
-                    .clone()
-                    .iter()
-                    .find_map(|f| {
-                        if f.get("filterType").unwrap() == "PRICE_FILTER" {
-                            Some(
-                                f.get("tickSize")
-                                    .unwrap()
-                                    .to_string()
-                                    .trim_matches('"')
-                                    .to_string(),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap(),
-            )
-        })
-        .collect();
-    Ok(symbols)
-}
+// pub(crate) async fn um_get_price_ticker_size(
+//     markets: &BinanceResponse<UsdtMarginMarket>,
+// ) -> Result<Vec<(String, String)>, ()> {
+//     let symbols: Vec<(String, String)> = markets
+//         .symbols
+//         .iter()
+//         .map(|m| {
+//             (
+//                 m.symbol.clone(),
+//                 m.filters
+//                     .clone()
+//                     .iter()
+//                     .find_map(|f| {
+//                         if f.get("filterType").unwrap() == "PRICE_FILTER" {
+//                             Some(
+//                                 f.get("tickSize")
+//                                     .unwrap()
+//                                     .to_string()
+//                                     .trim_matches('"')
+//                                     .to_string(),
+//                             )
+//                         } else {
+//                             None
+//                         }
+//                     })
+//                     .unwrap(),
+//             )
+//         })
+//         .collect();
+//     Ok(symbols)
+// }
 
 pub(crate) async fn http_um_get_markets() -> Result<BinanceResponse<UsdtMarginMarket>, ()> {
     // 创建一个 reqwest 客户端
@@ -152,37 +152,37 @@ pub(crate) async fn spot_get_symbols(
     Ok(symbols)
 }
 
-pub(crate) async fn spot_get_price_ticker_size(
-    markets: &BinanceResponse<SpotMarket>,
-) -> Result<Vec<(String, String)>, ()> {
-    let symbols: Vec<(String, String)> = markets
-        .symbols
-        .iter()
-        .map(|m| {
-            (
-                m.symbol.clone(),
-                m.filters
-                    .clone()
-                    .iter()
-                    .find_map(|f| {
-                        if f.get("filterType").unwrap() == "PRICE_FILTER" {
-                            Some(
-                                f.get("tickSize")
-                                    .unwrap()
-                                    .to_string()
-                                    .trim_matches('"')
-                                    .to_string(),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap(),
-            )
-        })
-        .collect();
-    Ok(symbols)
-}
+// pub(crate) async fn spot_get_price_ticker_size(
+//     markets: &BinanceResponse<SpotMarket>,
+// ) -> Result<Vec<(String, String)>, ()> {
+//     let symbols: Vec<(String, String)> = markets
+//         .symbols
+//         .iter()
+//         .map(|m| {
+//             (
+//                 m.symbol.clone(),
+//                 m.filters
+//                     .clone()
+//                     .iter()
+//                     .find_map(|f| {
+//                         if f.get("filterType").unwrap() == "PRICE_FILTER" {
+//                             Some(
+//                                 f.get("tickSize")
+//                                     .unwrap()
+//                                     .to_string()
+//                                     .trim_matches('"')
+//                                     .to_string(),
+//                             )
+//                         } else {
+//                             None
+//                         }
+//                     })
+//                     .unwrap(),
+//             )
+//         })
+//         .collect();
+//     Ok(symbols)
+// }
 
 pub(crate) async fn http_spot_get_markets() -> Result<BinanceResponse<SpotMarket>, ()> {
     // 创建一个 reqwest 客户端

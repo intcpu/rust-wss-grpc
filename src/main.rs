@@ -1,20 +1,19 @@
 use crate::rpc::rpc_server::signal::{MarginType, PairBookTicker};
 use crate::rpc::rpc_types::{AllBookTickers, SpotBookTickers, UsdtMarginBookTickers};
-use std::collections::HashMap;
+// use std::collections::HashMap;
 // use chrono::Local;
 use crate::rest::bn_rest::{
-    http_spot_get_markets, http_um_get_markets, spot_get_price_ticker_size, spot_get_symbols,
-    um_get_price_ticker_size, um_get_symbols,
+    http_spot_get_markets, http_um_get_markets, spot_get_symbols, um_get_symbols,
 };
-use chrono::{Local, Utc};
+use chrono::Utc;
 use dashmap::DashMap;
 use rpc::rpc_server;
 use std::process;
 use std::sync::Arc;
-use tokio::sync::broadcast::{Receiver, Sender};
-use tokio::sync::{broadcast, Mutex};
+// use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
-use tracing::{error, info, Level};
+use tracing::{error, info, warn, Level};
 use tracing_subscriber;
 use tracing_subscriber::util::SubscriberInitExt;
 use wss::{bn_wss, bn_wss_type};
@@ -47,13 +46,13 @@ async fn main() {
     };
 
     let spot_markets = http_spot_get_markets().await.unwrap();
-    let spot_price_float = match spot_get_price_ticker_size(&spot_markets).await {
-        Ok(d) => d,
-        Err(e) => {
-            error!("Failed to get spot_price_float: {:?}", e);
-            process::exit(1);
-        }
-    };
+    // let spot_price_float = match spot_get_price_ticker_size(&spot_markets).await {
+    //     Ok(d) => d,
+    //     Err(e) => {
+    //         error!("Failed to get spot_price_float: {:?}", e);
+    //         process::exit(1);
+    //     }
+    // };
 
     let spot_symbols = match spot_get_symbols(&spot_markets).await {
         Ok(d) => d,
@@ -64,13 +63,13 @@ async fn main() {
     };
 
     let um_markets = http_um_get_markets().await.unwrap();
-    let um_price_float = match um_get_price_ticker_size(&um_markets).await {
-        Ok(d) => d,
-        Err(e) => {
-            error!("Failed to get um_price_float: {:?}", e);
-            process::exit(1);
-        }
-    };
+    // let um_price_float = match um_get_price_ticker_size(&um_markets).await {
+    //     Ok(d) => d,
+    //     Err(e) => {
+    //         error!("Failed to get um_price_float: {:?}", e);
+    //         process::exit(1);
+    //     }
+    // };
 
     let um_symbols = match um_get_symbols(&um_markets).await {
         Ok(d) => d,
@@ -93,8 +92,8 @@ async fn main() {
                 loop {
                     info!("{:?} spot wss start", &symbol_t);
                     let tx = tx.clone();
-                    bn_wss::bn_spot_wss_bookticker(&symbol_t, tx).await;
-                    error!("{:?} spot wss end", &symbol_t);
+                    let res = bn_wss::bn_spot_wss_bookticker(&symbol_t, tx).await;
+                    error!("{:?} spot wss end:{:?}", &symbol_t, res);
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
             });
@@ -160,8 +159,8 @@ async fn main() {
                 loop {
                     info!("{:?} usdt margin wss start", &symbol_t);
                     let tx = tx.clone();
-                    bn_wss::bn_um_wss_bookticker(&symbol_t, tx).await;
-                    error!("{:?} usdt margin wss end", &symbol_t);
+                    let res = bn_wss::bn_um_wss_bookticker(&symbol_t, tx).await;
+                    error!("{:?} usdt margin wss end:{:?}", &symbol_t, res);
                     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                 }
             });
@@ -231,6 +230,7 @@ async fn main() {
     let check_task = tokio::task::spawn(async move {
         info!("check all_book_tickers");
         loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
             let spot_book = spot_book_tickers.data.clone();
             let usdt_book = usdt_margin_book_tickers.data.clone();
             let now = Utc::now();
@@ -251,7 +251,7 @@ async fn main() {
                     let event_time: i128 = a.timestamp.clone() as i128;
                     let time_out = microseconds.checked_sub(event_time).unwrap_or_default();
                     if time_out > time_out_set {
-                        error!(
+                        warn!(
                             "{} spot book time from now: {:?} timeout: {:?}",
                             &symbol, microseconds, time_out
                         );
@@ -265,7 +265,7 @@ async fn main() {
                     let event_time: i128 = a.timestamp.clone() as i128;
                     let time_out = microseconds.checked_sub(event_time).unwrap_or_default();
                     if time_out > time_out_set {
-                        error!(
+                        warn!(
                             "{} usdt margin book time from now: {:?} timeout: {:?}",
                             &symbol, microseconds, time_out
                         );
@@ -274,7 +274,6 @@ async fn main() {
                     error!("usdt_margin_book_tickers not found symbol: {:?}", &symbol)
                 }
             }
-            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
         }
     });
 
